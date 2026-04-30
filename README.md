@@ -17,43 +17,45 @@ This project is designed to simulate how real SaaS companies manage:
 
 The goal is to build a scalable, production-ready backend system rather than a beginner CRUD project.
 
-Community discussions around SaaS billing consistently recommend separating billing logic from payment processors like Stripe so the system stays flexible and vendor-independent as complexity grows. ([Reddit][1])
+Community discussions around SaaS billing consistently recommend separating billing logic from payment processors like Stripe so the system stays flexible and vendor-independent as complexity grows.
 
+---
 
-## Project Structure
+# Project Structure
 
-saas-subscription-billing/<br>
-│<br>
-├── apps/<br>
-│   ├── analytics/<br>
-│   ├── audit_logs/<br>
-│   ├── billing/<br>
-│   ├── core/<br>
-│   ├── invoices/<br>
-│   ├── notifications/<br>
-│   ├── organizations/<br>
-│   ├── subscriptions/<br>
-│   ├── teams/<br>
-│   ├── usage_tracking/<br>
-│   └── users/<br>
-│<br>
-├── config/<br>
-├── tests/<br>
-│<br>
-├── docker-compose.yml<br>
-├── Dockerfile<br>
-├── manage.py<br>
-├── requirements.txt<br>
-├── pytest.ini<br>
-├── .env<br>
-└── README.md<br>
+```text
+saas-subscription-billing/
+│
+├── apps/
+│   ├── analytics/
+│   ├── audit_logs/
+│   ├── billing/
+│   ├── core/
+│   ├── invoices/
+│   ├── notifications/
+│   ├── organizations/
+│   ├── subscriptions/
+│   ├── teams/
+│   ├── usage_tracking/
+│   └── users/
+│
+├── config/
+├── tests/
+│
+├── docker-compose.yml
+├── Dockerfile
+├── manage.py
+├── requirements.txt
+├── pytest.ini
+├── .env
+└── README.md
 ```
 
+---
 
-## Tech Stack
+# **Tech Stack**
 
-
-### Backend
+## **Backend**
 
 * Python 3.x
 * Django
@@ -64,7 +66,7 @@ saas-subscription-billing/<br>
 * Redis (planned)
 * Swagger / OpenAPI Docs
 
-### DevOps
+## **DevOps**
 
 * Docker
 * Docker Compose
@@ -72,11 +74,11 @@ saas-subscription-billing/<br>
 * Pytest
 * Production-ready project structure
 
+---
 
+# Core Features
 
-## Core Features
-
-## 1. User Management
+## **1. User Management**
 
 * Custom User Model
 * JWT Authentication
@@ -84,35 +86,37 @@ saas-subscription-billing/<br>
 * Admin / Owner / Manager / Member Roles
 * Secure Permissions Layer
 
+---
 
-## 2. Organizations (Multi-Tenant SaaS)
+## **2. Organizations (Multi-Tenant SaaS)**
 
 Each company using the platform is treated as an Organization.
 
-Examples:
+### Examples:
 
 * Startup A
 * Agency B
 * SaaS Company C
 
-Features:
+### Features:
 
 * Organization Ownership
 * Company Settings
 * Tenant Isolation
 * Team Member Access
 
+---
 
-## 3. Subscription Management
+## **3. Subscription Management**
 
-Supports:
+### Supports:
 
 * Free Plan
 * Starter Plan
 * Pro Plan
 * Enterprise Plan
 
-Features:
+### Features:
 
 * Monthly / Yearly Billing
 * Trial Periods
@@ -121,10 +125,11 @@ Features:
 * Grace Periods
 * Failed Payment Recovery
 
+---
 
-## 4. Billing System
+## **4. Billing System**
 
-Production-style architecture:
+### Production-style architecture:
 
 * Payment Service Layer
 * Invoice Engine
@@ -133,9 +138,11 @@ Production-style architecture:
 * Webhook Processing
 * Payment Gateway Ready
 
-The billing layer is intentionally designed separately from payment processors so gateways like Stripe, Razorpay, or PayPal can be swapped later more easily. ([Reddit][1])
+The billing layer is intentionally designed separately from payment processors so gateways like Stripe, Razorpay, or PayPal can be swapped later more easily.
 
-## 5. Invoice Management
+---
+
+## **5. Invoice Management**
 
 * Automatic Invoice Generation
 * Due Dates
@@ -143,10 +150,11 @@ The billing layer is intentionally designed separately from payment processors s
 * Tax-ready Architecture
 * GST-ready Extension Path
 
+---
 
-## 6. Usage Tracking
+## **6. Usage Tracking**
 
-Track:
+### Track:
 
 * API Usage
 * Team Seats
@@ -155,12 +163,13 @@ Track:
 
 This supports usage-based billing and quota enforcement.
 
-Open-source billing platforms commonly model usage tracking and metering as a core part of scalable subscription systems. ([GitHub][2])
+Open-source billing platforms commonly model usage tracking and metering as a core part of scalable subscription systems.
 
+---
 
-## 7. Audit Logs
+## **7. Audit Logs**
 
-Track:
+### Track:
 
 * Subscription Changes
 * Payment Attempts
@@ -170,18 +179,20 @@ Track:
 
 Production systems rely heavily on audit trails.
 
+---
 
-## 8. Notifications
+## **8. Notifications**
 
 * Invoice Reminders
 * Failed Payment Alerts
 * Trial Expiry Warnings
 * Subscription Renewal Emails
 
+---
 
-## Future Improvements
+# Future Improvements
 
-Planned upgrades:
+### Planned upgrades:
 
 * Celery + Redis
 * Stripe Integration
@@ -196,9 +207,9 @@ Planned upgrades:
 * Rate Limiting
 * Advanced Admin Analytics
 
+---
 
-
-## Why This Project Matters
+# Why This Project Matters
 
 This is not just another CRUD backend.
 
