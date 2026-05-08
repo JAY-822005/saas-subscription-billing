@@ -1,51 +1,478 @@
-version: "3.9"
+# Production-Ready Docker Compose Configuration
+# Senior-level SaaS platform with Redis, PostgreSQL, Django, and Celery
+# 
+# KEY ARCHITECTURAL DECISIONS:
+# 1. No deprecated 'version' field (Compose v2+ is default)
+# 2. Internal service-to-service networking (port exposures only for external access)
+# 3. Health checks to prevent race conditions
+# 4. Named volumes for persistent data
+# 5. Environment variables via .env for port configuration
+# 6. Resource limits to prevent container runaway
+# 7. Proper logging configuration
+# 8. Production-ready gunicorn instead of development runserver
+# 9. Celery workers with dedicated configuration
+# 10. Reverse proxy-ready (can add Nginx later)
 
 services:
-  db:
-    image: postgres:15
-    container_name: saas_postgres
-    restart: always
+  # PostgreSQL Database Service
+  # Why separate from web: Database is a dependency, not part of application
+  # Runs on Docker internal network (not exposed to host by default)
+  postgres:
+    image: postgres:16-alpine
+    container_name: saas-postgres-prod
+    hostname: postgres
+    
+    # Production restart policy: always restart unless explicitly stopped
+    restart: unless-stopped
+    
+    # Environment configuration
     environment:
-      POSTGRES_DB: saas_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-saas_billing_db}
+      POSTGRES_USER: ${DB_USER:-saas_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # Improve performance
+      POSTGRES_HOST_AUTH_METHOD: md5
+    
+    # Only expose to host if direct DB access needed (NOT recommended for production)
+    # In production, access only through application
+    # For development/debugging: uncomment next line
+    # ports:
+    #   - "${DB_PORT_EXTERNAL:-5432}:5432"
+    
+    # Persistent storage - survives container restart/recreation
+    # Named volume is managed by Docker, not tied to filesystem
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    
+    # Health check - prevents web container from starting before DB is ready
+    # This is CRITICAL for race condition prevention
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-saas_user} -d ${DB_NAME:-saas_billing_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    
+    # Resource limits prevent database from consuming all host resources
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    
+    # Network configuration
+    networks:
+      - backend-network
+    
+    # Performance tuning for PostgreSQL
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
 
+
+  # Redis Cache/Message Broker
+  # Why: High-performance in-memory data store for Celery tasks and caching
+  # Internal network only - no external access needed
   redis:
-    image: redis:7
-    container_name: saas_redis
-    restart: always
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    container_name: saas-redis-prod
+    hostname: redis
+    
+    restart: unless-stopped
+    
+    # NOT exposed to host - only accessed by backend services via internal network
+    # This prevents port 6379 conflicts entirely
+    # ports: [] # Intentionally empty
+    
+    # Persistence - critical for production
+    # RDB (snapshots) + AOF (append-only file) for durability
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --timeout 300
+      --tcp-backlog 511
+      --databases 2
+    
+    # Persistent storage
+    volumes:
+      - redis_data:/data
+    
+    # Health check for Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    
+    networks:
+      - backend-network
+    
+    # Data persistence directory
+    user: "999:999"
 
+
+  # Django Web Application
   web:
-    build: .
-    container_name: saas_web
-    command: python manage.py runserver 0.0.0.0:8000
+    # Build from local Dockerfile with optimizations
+    build:
+      context: .
+      dockerfile: dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+        BUILD_ENV: "production"
+    
+    container_name: saas-web-prod
+    hostname: web
+    
+    restart: unless-stopped
+    
+    # Use gunicorn in production (not development runserver)
+    # 4 workers = 1 + 2*CPU_cores for medium workload
+    # See: https://docs.gunicorn.org/en/stable/design.html
+    command: >
+      gunicorn
+      --workers 4
+      --worker-class sync
+      --worker-tmp-dir /dev/shm
+      --bind 0.0.0.0:8000
+      --timeout 120
+      --access-logfile -
+      --error-logfile -
+      --log-level ${LOG_LEVEL:-info}
+      config.wsgi:application
+    
+    # Environment configuration - separate from host
+    env_file:
+      - .env.docker
+    
+    # Persistent data directories (not application code)
     volumes:
-      - .:/app
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+      - logs:/app/logs
+      # Bind mount ONLY for development (not in prod)
+      # - .:/app
+    
+    # Port exposure - ONLY expose web port to host
+    # Internal services communicate via docker network
     ports:
-      - "8000:8000"
+      - "${WEB_PORT_EXTERNAL:-8000}:8000"
+    
+    # Health check ensures readiness
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Critical: Wait for both dependencies to be healthy
     depends_on:
-      - db
-      - redis
-    env_file:
-      - .env
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Environment variables
+    environment:
+      DEBUG: "${DEBUG:-False}"
+      DJANGO_SETTINGS_MODULE: config.settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    
+    networks:
+      - backend-network
+      - frontend-network
 
-  celery:
-    build: .
-    container_name: saas_celery
-    command: celery -A config worker --pool=solo -l info
+
+  # Celery Worker Service
+  # Why separate: Background task processing must be isolated from web server
+  # Uses same Docker image as web but different command
+  celery-worker:
+    build:
+      context: .
+      dockerfile: dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+        BUILD_ENV: "production"
+    
+    container_name: saas-celery-worker-prod
+    hostname: celery-worker
+    
+    restart: unless-stopped
+    
+    # Celery worker with concurrency tuning
+    # solo pool: single process, safe for development/testing
+    # For production: use prefork (default) with concurrency=4-8
+    command: >
+      celery
+      --app config
+      worker
+      --loglevel=${LOG_LEVEL:-info}
+      --concurrency=4
+      --pool=prefork
+      --max-tasks-per-child=1000
+      --time-limit=600
+      --soft-time-limit=540
+    
+    env_file:
+      - .env.docker
+    
     volumes:
-      - .:/app
+      - logs:/app/logs
+    
+    # NO ports exposed - internal only
+    # Celery communicates via Redis broker
+    
     depends_on:
-      - db
-      - redis
-    env_file:
-      - .env
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    
+    environment:
+      DEBUG: "${DEBUG:-False}"
+      DJANGO_SETTINGS_MODULE: config.settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    
+    networks:
+      - backend-network
 
+
+  # Celery Beat (Task Scheduler)
+  # Why: Schedules periodic tasks (e.g., hourly reports, daily cleanup)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+        BUILD_ENV: "production"
+    
+    container_name: saas-celery-beat-prod
+    hostname: celery-beat
+    
+    restart: unless-stopped
+    
+    command: >
+      celery
+      --app config
+      beat
+      --loglevel=${LOG_LEVEL:-info}
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    
+    env_file:
+      - .env.docker
+    
+    volumes:
+      - logs:/app/logs
+      - celery_beat_schedule:/app/celery_beat_schedule
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    
+    environment:
+      DEBUG: "${DEBUG:-False}"
+      DJANGO_SETTINGS_MODULE: config.settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    
+    networks:
+      - backend-network
+
+
+  # Flower: Celery Monitoring Dashboard
+  # Optional but recommended for production monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+        BUILD_ENV: "production"
+    
+    container_name: saas-flower-prod
+    hostname: flower
+    
+    restart: unless-stopped
+    
+    # Flower provides web UI for Celery monitoring
+    command: >
+      celery
+      --app config
+      flower
+      --port=5555
+      --broker=redis://redis:6379/0
+    
+    env_file:
+      - .env.docker
+    
+    # Expose Flower UI (only in development/internal networks)
+    ports:
+      - "${FLOWER_PORT_EXTERNAL:-5555}:5555"
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+    
+    environment:
+      DEBUG: "${DEBUG:-False}"
+      PYTHONUNBUFFERED: "1"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    
+    networks:
+      - backend-network
+
+
+# Named Volumes
+# Why: Persistent data that survives container deletion
+# Benefits: Easy backup, no filesystem dependencies, Docker-managed
 volumes:
   postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/postgres_data
+  
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/redis_data
+  
+  static_files:
+    driver: local
+  
+  media_files:
+    driver: local
+  
+  logs:
+    driver: local
+  
+  celery_beat_schedule:
+    driver: local
+
+
+# Network Configuration
+# Why: Isolated networks for security and organization
+# Services on same network can resolve each other by hostname
+networks:
+  # Backend network: database, cache, workers
+  backend-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500
+  
+  # Frontend network: web server (future: add Nginx/HAProxy here)
+  frontend-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500

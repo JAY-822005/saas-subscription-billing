@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Subscriptions - SaaS Billing{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+    <h1>
+        <i class="fas fa-bezier-curve"></i> Subscriptions
+    </h1>
+    <a href="{% url 'subscriptions_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Subscription
+    </a>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="trial" {% if request.GET.status == 'trial' %}selected{% endif %}>Trial</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Organization</th>
+                    <th>Plan</th>
+                    <th>Billing Cycle</th>
+                    <th>Status</th>
+                    <th>Renewal Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for subscription in subscriptions %}
+                    <tr>
+                        <td>{{ subscription.organization.name }}</td>
+                        <td>
+                            <strong>{{ subscription.plan.name }}</strong><br>
+                            <small class="text-muted">${{ subscription.plan.monthly_price|floatformat:2 }}/month</small>
+                        </td>
+                        <td>{{ subscription.get_billing_cycle_display }}</td>
+                        <td>
+                            {% if subscription.status == 'active' %}
+                                <span class="badge badge-success">Active</span>
+                            {% elif subscription.status == 'trial' %}
+                                <span class="badge badge-info">Trial</span>
+                            {% elif subscription.status == 'cancelled' %}
+                                <span class="badge badge-danger">Cancelled</span>
+                            {% elif subscription.status == 'past_due' %}
+                                <span class="badge badge-warning">Past Due</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if subscription.renews_at %}
+                                {{ subscription.renews_at|date:"M d, Y" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'subscriptions_detail' subscription.id %}" class="btn btn-sm btn-info" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'subscriptions_update' subscription.id %}" class="btn btn-sm btn-warning" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            No subscriptions found. <a href="{% url 'subscriptions_create' %}">Create one now</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

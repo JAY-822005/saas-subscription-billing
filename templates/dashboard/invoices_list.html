@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoices - SaaS Billing{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+    <h1>
+        <i class="fas fa-file-invoice"></i> Invoices
+    </h1>
+    <a href="{% url 'invoices_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Invoice
+    </a>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Invoice #...">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Organization</th>
+                    <th>Amount</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Issued</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in invoices %}
+                    <tr>
+                        <td>
+                            <strong>{{ invoice.invoice_number }}</strong>
+                        </td>
+                        <td>{{ invoice.organization.name }}</td>
+                        <td>${{ invoice.amount|floatformat:2 }}</td>
+                        <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if invoice.status == 'paid' %}
+                                <span class="badge badge-success">Paid</span>
+                            {% elif invoice.status == 'pending' %}
+                                <span class="badge badge-warning">Pending</span>
+                            {% elif invoice.status == 'overdue' %}
+                                <span class="badge badge-danger">Overdue</span>
+                            {% elif invoice.status == 'failed' %}
+                                <span class="badge badge-danger">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ invoice.issued_at|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-sm btn-info" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'invoice_download' invoice.id %}" class="btn btn-sm btn-success" title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <a href="{% url 'invoice_delete' invoice.id %}" class="btn btn-sm btn-danger" title="Delete" onclick="return confirm('Are you sure?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No invoices found. <a href="{% url 'invoices_create' %}">Create one now</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

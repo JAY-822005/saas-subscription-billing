@@ -2,7 +2,7 @@ from rest_framework.generics import (
     CreateAPIView,
     RetrieveUpdateAPIView,
 )
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import User
 from .serializers import (
@@ -14,6 +14,7 @@ from .serializers import (
 class RegisterView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [AllowAny]  # Allow anonymous registration
 
 
 class ProfileView(RetrieveUpdateAPIView):
