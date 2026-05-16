@@ -1,53 +1,48 @@
-# 🏗️ System Architecture & Visual Diagrams
+# System Architecture
 
-## Complete System Architecture
+## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                INTERNET/CLIENTS                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       ▲
-                                       │
-                    ┌──────────────────┴──────────────────┐
-                    │                                      │
-        ┌───────────▼────────────┐           ┌────────────▼──────────┐
-        │   WEB BROWSER          │           │  API CLIENTS          │
-        │   (HTML/CSS/JS)        │           │  (Mobile, SPA, etc)   │
-        │   ┌─────────────────┐  │           │  ┌────────────────┐   │
-        │   │ Login Page      │  │           │  │ POST /register │   │
-        │   │ Dashboard       │  │           │  │ POST /token    │   │
-        │   │ Organizations   │  │           │  │ GET /api/orgs  │   │
-        │   │ Subscriptions   │  │           │  │ POST /invoices │   │
-        │   │ Invoices        │  │           │  └────────────────┘   │
-        │   └─────────────────┘  │           │                        │
-        └───────────┬────────────┘           └────────────┬───────────┘
-                    │                                     │
-                    └─────────────────┬────────────────────┘
-                                      │
-                                      ▼
-        ┌─────────────────────────────────────────────────────────┐
-        │                                                           │
-        │              DJANGO WEB SERVER (Port 8000)               │
-        │           (Development: runserver, Production: Gunicorn)  │
-        │                                                           │
-        │  ┌─────────────────────────────────────────────────────┐│
-        │  │            URL ROUTER (config/urls.py)              ││
-        │  │  Route requests to appropriate handlers             ││
-        │  └────────────────────┬────────────────────────────────┘│
-        │                       │                                  │
-        │       ┌───────────────┼───────────────┐                │
-        │       │               │               │                │
-        │  ┌────▼────┐    ┌─────▼────┐   ┌─────▼────┐           │
-        │  │ Frontend │    │ REST API │   │ Django   │           │
-        │  │  Views   │    │ ViewSets │   │  Admin   │           │
-        │  │          │    │          │   │  Panel   │           │
-        │  │ - Login  │    │ - Users  │   │ (CRUD)   │           │
-        │  │ - Dash   │    │ - Orgs   │   │          │           │
-        │  │ - Orgs   │    │ - Subs   │   │          │           │
-        │  │ - Invoices │  │ - Invoices │ │          │           │
-        │  └────┬─────┘    └─────┬────┘   └─────┬────┘           │
-        │       │                │              │                │
-        │       └────────────────┼──────────────┘                │
+The system follows a modular, multi-tenant architecture built on Django REST Framework.
+
+## Core Components
+
+**Frontend:** Django templates with Bootstrap 5 for dashboards and user interfaces.
+
+**REST API:** Django REST Framework endpoints with JWT authentication for external clients.
+
+**Database:** PostgreSQL or SQLite for data persistence, supporting multi-tenant isolation.
+
+**Message Queue:** Celery with Redis for asynchronous task processing (invoice generation, notifications, etc).
+
+**Caching:** Redis for session management and query caching.
+
+**Admin:** Django admin interface for internal management.
+
+## Data Model
+
+**Organizations:** Top-level tenants, containing subscriptions and teams.
+
+**Users:** System users with roles (admin, owner, manager, member).
+
+**Subscriptions:** Active product subscriptions with plans and billing cycles.
+
+**Invoices:** Generated from subscriptions, tracked through their lifecycle.
+
+**Usage Tracking:** Records API calls, seat usage, and other metered features.
+
+**Audit Logs:** All significant changes for compliance.
+
+## Key Design Decisions
+
+**Multi-tenancy:** Organizations are isolated; no cross-organization data access.
+
+**API-First:** All data access flows through REST APIs and serializers.
+
+**Async Processing:** Long-running operations (invoicing, emails) use Celery tasks.
+
+**Validation:** Serializers enforce business logic and data integrity.
+
+**Separation of Concerns:** Each app handles a specific domain (users, subscriptions, billing, etc).
         │                        │                               │
         │  ┌─────────────────────▼──────────────────────────────┐│
         │  │         AUTHENTICATION LAYER (JWT)                 ││

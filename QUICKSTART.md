@@ -1,53 +1,49 @@
-# Quick Start Guide - SaaS Billing Platform
+# Quick Start Guide
 
-## 🚀 Getting Started in 5 Minutes
+## Setup
 
-### Step 1: Install Dependencies
+For SQLite development (no Docker required):
+
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Step 2: Setup Environment
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your settings (if needed)
-# For development, defaults should work with PostgreSQL
-```
-
-### Step 3: Setup Database
-```bash
-# Create migrations
+# Setup database
 python manage.py migrate
 
 # Create admin user
 python manage.py createsuperuser
 
-# Generate sample data (optional)
-python manage.py generate_sample_data --users 3 --orgs 5
-```
-
-### Step 4: Run Development Server
-```bash
+# Run development server
 python manage.py runserver
 ```
 
-### Step 5: Access the Application
-Open your browser to:
-- **Dashboard**: http://localhost:8000/
-- **Admin Panel**: http://localhost:8000/admin/
-- **API Docs**: http://localhost:8000/swagger/
+Server runs at http://localhost:8000
 
----
+## Default Admin Credentials
 
-## 📝 Default Credentials (Sample Data)
+Use the credentials you set during createsuperuser.
 
-If you ran `generate_sample_data`:
-- **Email**: user1@example.com
-- **Password**: testpass123
+## Access Points
 
----
+- Dashboard: http://localhost:8000/
+- Admin Panel: http://localhost:8000/admin/
+- API Documentation: http://localhost:8000/api/schema/swagger/
+
+## For PostgreSQL
+
+Update .env:
+
+```
+DB_ENGINE=postgresql
+DB_NAME=saas_db
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+Then run migrations.
 
 ## 🎯 What You Can Do Now
 
